@@ -101,21 +101,22 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    if not check_tokens():
-        raise Exception('Отсутсвует переменная окружения')
+    #if not check_tokens():
+    #    raise Exception('Отсутсвует переменная окружения')
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(timestamp)
+            send_message(bot, response)
             homework = check_response(response)
-            if len(homework) > 0:
-                message = parse_status(homework[0])
-                send_message(bot, message)
+            send_message(bot, homework)
+            message = parse_status(homework[0])
+            send_message(bot, message)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logging.error(message)
-            send_message(bot, message)
+            #send_message(bot, message)
         finally:
             time.sleep(RETRY_PERIOD)
 
