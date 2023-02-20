@@ -10,14 +10,20 @@ load_dotenv()
 
 
 class MessageError(Exception):
+    """Ошибка отправки сообщения."""
+
     pass
 
 
 class EndpointError(Exception):
+    """Ошибка endpoint."""
+
     pass
 
 
 class ConnectionError(Exception):
+    """Ошибка сети."""
+
     pass
 
 
