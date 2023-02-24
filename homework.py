@@ -23,7 +23,7 @@ class EndpointError(Exception):
 
 
 class TokenError(Exception):
-    """Ошибка endpoint."""
+    """Ошибка переменных окружения."""
 
     pass
 
