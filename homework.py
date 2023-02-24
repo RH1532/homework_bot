@@ -1,9 +1,10 @@
 import logging
+import sys
 import os
-import requests
-import telegram
 import time
 
+import requests
+import telegram
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,6 +17,12 @@ class MessageError(Exception):
 
 
 class EndpointError(Exception):
+    """Ошибка endpoint."""
+
+    pass
+
+
+class TokenError(Exception):
     """Ошибка endpoint."""
 
     pass
@@ -51,19 +58,24 @@ PROGRAM_CRASH = 'Сбой в работе программы: {error}'
 KEY_MISSING = 'Отсутсвует ключ "homework_name"'
 KEY_ERROR = 'Ошибка ключа "homeworks"'
 MESSAGE_ERROR = 'Ошибка при отправке сообщения'
-ENDPOINT_ERROR = 'Ошибка соединения: {status_code}'
-RESPONSE_ERROR = 'Ошибка соединения: {error}'
+ENDPOINT_ERROR = 'Ошибка {error} при запросе к эндпоинту '\
+                 'с параметрами {parameters}'
+CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
+                   'с параметрами {parameters}'
+SERVICE_ERROR = 'отказ от обслуживания: {code}, {error}'
 
 
 def check_tokens():
     """Проверка переменных окружения."""
-    missing_variables = []
-    for name in ENVIRONMENT_VARIABLES:
-        if globals()[name] is None:
-            missing_variables.append(name)
-    if len(missing_variables) > 0:
+    missing_variables = [
+        name
+        for name
+        in ENVIRONMENT_VARIABLES
+        if globals()[name] is None
+    ]
+    if missing_variables:
         logging.critical(MISSING_TOKEN.format(tokens=missing_variables))
-        raise KeyError
+        raise TokenError(MISSING_TOKEN.format(tokens=missing_variables))
 
 
 def send_message(bot, message):
@@ -71,12 +83,15 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug(MESSAGE_SEND.format(message=message))
-    except Exception:
-        logging.exception(MESSAGE_ERROR.format(
+    except Exception as error:
+        logging.error(MESSAGE_ERROR.format(
             message=message,
-            error=Exception
+            error=error
         ))
-        raise MessageError
+        raise MessageError(MESSAGE_ERROR.format(
+            message=message,
+            error=error
+        ))
 
 
 def get_api_answer(timestamp):
@@ -88,13 +103,23 @@ def get_api_answer(timestamp):
     )
     try:
         response = requests.get(**parameters)
-    except Exception:
-        raise ConnectionError(RESPONSE_ERROR.format(error=Exception))
-    if response.status_code != 200:
-        raise EndpointError(ENDPOINT_ERROR.format(
-            status_code=response.status_code
+    except requests.exceptions.RequestException as error:
+        raise ConnectionError(ENDPOINT_ERROR.format(
+            error=error,
+            parameters=parameters
         ))
-    return response.json()
+    if response.status_code != 200:
+        raise EndpointError(CONNECTION_ERROR.format(
+            status_code=response.status_code,
+            parameters=parameters
+        ))
+    if 'code' in response.json() or 'error' in response.json():
+        raise KeyError(SERVICE_ERROR.format(
+            code=response.json()['code'],
+            error=response.json()['error']
+        ))
+    else:
+        return response.json()
 
 
 def check_response(response):
@@ -137,7 +162,7 @@ def main():
                 if message != last_message:
                     send_message(bot, message)
                     last_message = message
-                timestamp = response.get('current_date') or timestamp
+                timestamp = response.get('current_date', timestamp)
         except Exception as error:
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
@@ -154,7 +179,7 @@ if __name__ == '__main__':
         format='%(asctime)s, %(levelname)s, %(lineno)d, %(message)s',
         handlers=[
             logging.FileHandler(__file__ + '.log'),
-            logging.StreamHandler()
+            logging.StreamHandler(sys.stdout)
         ]
     )
     main()
