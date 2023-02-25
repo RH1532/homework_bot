@@ -145,10 +145,7 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     check_tokens()
-    try:
-        bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    except Exception:
-        raise AttributeError(BOT_ERROR)
+    bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
     while True:
