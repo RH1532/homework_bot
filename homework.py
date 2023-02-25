@@ -56,10 +56,7 @@ ENDPOINT_ERROR = 'Ошибка {error} при запросе к эндпоинт
                  'с параметрами {parameters}'
 CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
                    'с параметрами {parameters}'
-SERVICE_ERROR = 'отказ от обслуживания:\n'
-CODE = 'code: {code}\n'
-ERROR = 'error: {error}\n'
-BOT_ERROR = 'Ошибка бота'
+SERVICE_ERROR = 'отказ от обслуживания с параметрами {parameters}\n'
 
 
 def check_tokens():
@@ -71,8 +68,9 @@ def check_tokens():
         if globals()[name] is None
     ]
     if missing_variables:
-        logging.critical(MISSING_TOKEN.format(tokens=missing_variables))
-        raise ReferenceError(MISSING_TOKEN.format(tokens=missing_variables))
+        missing_token = MISSING_TOKEN.format(tokens=missing_variables)
+        logging.critical(missing_token)
+        raise ValueError(missing_token)
 
 
 def send_message(bot, message):
@@ -107,13 +105,12 @@ def get_api_answer(timestamp):
             parameters=parameters
         ))
     response = response.json()
-    if 'code' in response:
-        if 'error' in response:
-            raise ConnectionRefusedError(SERVICE_ERROR + CODE + ERROR)
-        else:
-            raise ConnectionRefusedError(SERVICE_ERROR + CODE)
-    elif 'error' in response:
-        raise ConnectionRefusedError(SERVICE_ERROR + ERROR)
+    service_error = SERVICE_ERROR.format(parameters=parameters)
+    for key in ['code', 'error']:
+        if key in response:
+            service_error += response[key]
+    if service_error != SERVICE_ERROR.format(parameters=parameters):
+        raise ConnectionError(service_error)
     return response
 
 
@@ -148,6 +145,7 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
+    message = ''
     while True:
         try:
             response = get_api_answer(timestamp)
@@ -156,21 +154,14 @@ def main():
                 message = parse_status(homeworks[0])
                 if message != last_message:
                     send_message(bot, message)
-                    last_message = message
-                timestamp = response.get('current_date', timestamp)
         except Exception as error:
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
             if message != last_message:
-                try:
-                    send_message(bot, message)
-                except Exception as error:
-                    raise MessageError(MESSAGE_ERROR.format(
-                        error=error,
-                        message=message
-                    ))
-                last_message = message
+                send_message(bot, message)
         finally:
+            last_message = message
+            timestamp = response.get('current_date', timestamp)
             time.sleep(RETRY_PERIOD)
 
 
