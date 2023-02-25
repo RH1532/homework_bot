@@ -78,11 +78,13 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug(MESSAGE_SEND.format(message=message))
+        return True
     except Exception as error:
         logging.error(MESSAGE_ERROR.format(
             error=error,
             message=message
         ))
+        return False
 
 
 def get_api_answer(timestamp):
@@ -105,11 +107,13 @@ def get_api_answer(timestamp):
             parameters=parameters
         ))
     response = response.json()
-    service_error = SERVICE_ERROR.format(parameters=parameters)
     for key in ['code', 'error']:
         if key in response:
-            service_error += key + response[key]
-            raise ServiceError(service_error)
+            raise ServiceError(
+                SERVICE_ERROR.format(parameters=parameters)
+                + key
+                + response[key]
+            )
     return response
 
 
@@ -144,22 +148,22 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
-    message = ''
     while True:
-        last_message = message
         try:
             response = get_api_answer(timestamp)
-            timestamp = response.get('current_date', timestamp)
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
                 if message != last_message:
-                    send_message(bot, message)
+                    if send_message(bot, message) is True:
+                        last_message = message
+                        timestamp = response.get('current_date', timestamp)
         except Exception as error:
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
             if message != last_message:
-                send_message(bot, message)
+                if send_message(bot, message) is True:
+                    last_message = message
         finally:
             time.sleep(RETRY_PERIOD)
 
