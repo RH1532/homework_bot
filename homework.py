@@ -59,6 +59,7 @@ CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
 SERVICE_ERROR = 'отказ от обслуживания:\n'
 CODE = 'code: {code}\n'
 ERROR = 'error: {error}\n'
+BOT_ERROR = 'Ошибка бота'
 
 
 def check_tokens():
@@ -71,7 +72,7 @@ def check_tokens():
     ]
     if missing_variables:
         logging.critical(MISSING_TOKEN.format(tokens=missing_variables))
-        raise ValueError(MISSING_TOKEN.format(tokens=missing_variables))
+        raise AttributeError(MISSING_TOKEN.format(tokens=missing_variables))
 
 
 def send_message(bot, message):
@@ -144,7 +145,10 @@ def parse_status(homework):
 def main():
     """Основная логика работы бота."""
     check_tokens()
-    bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    try:
+        bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    except Exception:
+        raise AttributeError(BOT_ERROR)
     timestamp = 0
     last_message = ''
     while True:
