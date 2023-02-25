@@ -72,7 +72,7 @@ def check_tokens():
     ]
     if missing_variables:
         logging.critical(MISSING_TOKEN.format(tokens=missing_variables))
-        raise AttributeError(MISSING_TOKEN.format(tokens=missing_variables))
+        raise ReferenceError(MISSING_TOKEN.format(tokens=missing_variables))
 
 
 def send_message(bot, message):
@@ -109,11 +109,11 @@ def get_api_answer(timestamp):
     response = response.json()
     if 'code' in response:
         if 'error' in response:
-            raise ConnectionError(SERVICE_ERROR + CODE + ERROR)
+            raise ConnectionRefusedError(SERVICE_ERROR + CODE + ERROR)
         else:
-            raise ConnectionError(SERVICE_ERROR + CODE)
+            raise ConnectionRefusedError(SERVICE_ERROR + CODE)
     elif 'error' in response:
-        raise ConnectionError(SERVICE_ERROR + ERROR)
+        raise ConnectionRefusedError(SERVICE_ERROR + ERROR)
     return response
 
 
