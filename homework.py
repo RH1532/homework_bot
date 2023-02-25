@@ -10,20 +10,14 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-class MessageError(Exception):
-    """Ошибка отправки сообщения."""
-
-    pass
-
-
 class EndpointError(Exception):
     """Ошибка endpoint."""
 
     pass
 
 
-class TokenError(Exception):
-    """Ошибка переменных окружения."""
+class MessageError(Exception):
+    """Ошибка отправки сообщения."""
 
     pass
 
@@ -57,12 +51,14 @@ REVIEW_STATUS = 'Некорректный статус проверки: {status
 PROGRAM_CRASH = 'Сбой в работе программы: {error}'
 KEY_MISSING = 'Отсутсвует ключ "homework_name"'
 KEY_ERROR = 'Ошибка ключа "homeworks"'
-MESSAGE_ERROR = 'Ошибка при отправке сообщения'
+MESSAGE_ERROR = 'Ошибка {error} при отправке сообщения {message}'
 ENDPOINT_ERROR = 'Ошибка {error} при запросе к эндпоинту '\
                  'с параметрами {parameters}'
 CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
                    'с параметрами {parameters}'
-SERVICE_ERROR = 'отказ от обслуживания: {code}, {error}'
+SERVICE_ERROR = 'отказ от обслуживания:\n'
+CODE = 'code: {code}\n'
+ERROR = 'error: {error}\n'
 
 
 def check_tokens():
@@ -75,7 +71,7 @@ def check_tokens():
     ]
     if missing_variables:
         logging.critical(MISSING_TOKEN.format(tokens=missing_variables))
-        raise TokenError(MISSING_TOKEN.format(tokens=missing_variables))
+        raise ValueError(MISSING_TOKEN.format(tokens=missing_variables))
 
 
 def send_message(bot, message):
@@ -85,12 +81,8 @@ def send_message(bot, message):
         logging.debug(MESSAGE_SEND.format(message=message))
     except Exception as error:
         logging.error(MESSAGE_ERROR.format(
-            message=message,
-            error=error
-        ))
-        raise MessageError(MESSAGE_ERROR.format(
-            message=message,
-            error=error
+            error=error,
+            message=message
         ))
 
 
@@ -113,13 +105,15 @@ def get_api_answer(timestamp):
             status_code=response.status_code,
             parameters=parameters
         ))
-    if 'code' in response.json() or 'error' in response.json():
-        raise KeyError(SERVICE_ERROR.format(
-            code=response.json()['code'],
-            error=response.json()['error']
-        ))
-    else:
-        return response.json()
+    response = response.json()
+    if 'code' in response:
+        if 'error' in response:
+            raise ConnectionError(SERVICE_ERROR + CODE + ERROR)
+        else:
+            raise ConnectionError(SERVICE_ERROR + CODE)
+    elif 'error' in response:
+        raise ConnectionError(SERVICE_ERROR + ERROR)
+    return response
 
 
 def check_response(response):
@@ -157,7 +151,7 @@ def main():
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            if len(homeworks):
+            if homeworks:
                 message = parse_status(homeworks[0])
                 if message != last_message:
                     send_message(bot, message)
@@ -167,7 +161,13 @@ def main():
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
             if message != last_message:
-                send_message(bot, message)
+                try:
+                    send_message(bot, message)
+                except Exception as error:
+                    raise MessageError(MESSAGE_ERROR.format(
+                        error=error,
+                        message=message
+                    ))
                 last_message = message
         finally:
             time.sleep(RETRY_PERIOD)
