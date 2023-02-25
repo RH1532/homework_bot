@@ -16,8 +16,8 @@ class EndpointError(Exception):
     pass
 
 
-class MessageError(Exception):
-    """Ошибка отправки сообщения."""
+class ServiceError(Exception):
+    """Ошибка сервиса."""
 
     pass
 
@@ -108,9 +108,8 @@ def get_api_answer(timestamp):
     service_error = SERVICE_ERROR.format(parameters=parameters)
     for key in ['code', 'error']:
         if key in response:
-            service_error += response[key]
-    if service_error != SERVICE_ERROR.format(parameters=parameters):
-        raise ConnectionError(service_error)
+            service_error += key + response[key]
+            raise ServiceError(service_error)
     return response
 
 
@@ -147,8 +146,10 @@ def main():
     last_message = ''
     message = ''
     while True:
+        last_message = message
         try:
             response = get_api_answer(timestamp)
+            timestamp = response.get('current_date', timestamp)
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
@@ -160,8 +161,6 @@ def main():
             if message != last_message:
                 send_message(bot, message)
         finally:
-            last_message = message
-            timestamp = response.get('current_date', timestamp)
             time.sleep(RETRY_PERIOD)
 
 
