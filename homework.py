@@ -56,7 +56,8 @@ ENDPOINT_ERROR = 'Ошибка {error} при запросе к эндпоинт
                  'с параметрами {parameters}'
 CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
                    'с параметрами {parameters}'
-SERVICE_ERROR = 'отказ от обслуживания с параметрами {parameters}\n'
+SERVICE_ERROR = 'отказ от обслуживания с параметрами {parameters} '\
+                '{key} {value}'
 
 
 def check_tokens():
@@ -110,9 +111,11 @@ def get_api_answer(timestamp):
     for key in ['code', 'error']:
         if key in response:
             raise ServiceError(
-                SERVICE_ERROR.format(parameters=parameters)
-                + key
-                + response[key]
+                SERVICE_ERROR.format(
+                    parameters=parameters,
+                    key=key,
+                    value=response[key]
+                )
             )
     return response
 
@@ -148,23 +151,21 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
+    message = ''
     while True:
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
-                if message != last_message:
-                    if send_message(bot, message) is True:
-                        last_message = message
-                        timestamp = response.get('current_date', timestamp)
         except Exception as error:
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
-            if message != last_message:
-                if send_message(bot, message) is True:
-                    last_message = message
         finally:
+            if message != last_message:
+                if send_message(bot, message):
+                    last_message = message
+                    timestamp = response.get('current_date', timestamp)
             time.sleep(RETRY_PERIOD)
 
 
