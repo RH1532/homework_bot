@@ -52,12 +52,18 @@ PROGRAM_CRASH = 'Сбой в работе программы: {error}'
 KEY_MISSING = 'Отсутсвует ключ "homework_name"'
 KEY_ERROR = 'Ошибка ключа "homeworks"'
 MESSAGE_ERROR = 'Ошибка {error} при отправке сообщения {message}'
-ENDPOINT_ERROR = 'Ошибка {error} при запросе к эндпоинту '\
-                 'с параметрами {parameters}'
-CONNECTION_ERROR = 'Неверный ответ сервера {status_code} '\
-                   'с параметрами {parameters}'
-SERVICE_ERROR = 'отказ от обслуживания с параметрами {parameters} '\
-                '{key} {value}'
+ENDPOINT_ERROR = (
+    'Ошибка {error} при запросе к эндпоинту '
+    'с параметрами {parameters}'
+)
+CONNECTION_ERROR = (
+    'Неверный ответ сервера {status_code} '
+    'с параметрами {parameters}'
+)
+SERVICE_ERROR = (
+    'отказ от обслуживания с параметрами {parameters} '
+    '{key} {value}'
+)
 
 
 def check_tokens():
@@ -151,21 +157,21 @@ def main():
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0
     last_message = ''
-    message = ''
     while True:
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
             if homeworks:
                 message = parse_status(homeworks[0])
+                if message != last_message and send_message(bot, message):
+                    last_message = message
+                    timestamp = response.get('current_date', timestamp)
         except Exception as error:
             message = PROGRAM_CRASH.format(error=error)
             logging.error(message)
+            if message != last_message and send_message(bot, message):
+                last_message = message
         finally:
-            if message != last_message:
-                if send_message(bot, message):
-                    last_message = message
-                    timestamp = response.get('current_date', timestamp)
             time.sleep(RETRY_PERIOD)
 
 
